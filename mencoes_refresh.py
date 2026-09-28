@@ -1,0 +1,1 @@
+# Removido — auto-refresh desativado.
