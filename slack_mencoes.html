@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Menções Slack — Exemplo</title>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; color: #1e293b; padding: 20px; font-size: 14px; }
+h1 { font-size: 1.2rem; font-weight: 700; margin-bottom: 16px; color: #0f172a; }
+.filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 18px; margin-bottom: 18px; }
+.fg { display: flex; align-items: center; gap: 8px; }
+.fg label { font-size: .78rem; color: #64748b; font-weight: 600; white-space: nowrap; }
+.fg input[type="date"] { border: 1px solid #cbd5e1; border-radius: 6px; padding: 5px 10px; font-size: .82rem; color: #1e293b; background: #f8fafc; }
+.fg input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; }
+.ch-lbl { font-size: .82rem; cursor: pointer; }
+.btn { background: #2563eb; color: #fff; border: none; border-radius: 8px; padding: 7px 20px; font-size: .82rem; font-weight: 600; cursor: pointer; }
+.btn:hover { background: #1d4ed8; }
+.btn:disabled { background: #93c5fd; cursor: not-allowed; }
+.prog-wrap { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px 20px; margin-bottom: 18px; }
+.prog-bg { background: #e2e8f0; border-radius: 999px; height: 7px; margin: 10px 0 6px; overflow: hidden; }
+.prog-bar { background: #2563eb; height: 100%; border-radius: 999px; transition: width .4s ease; }
+.prog-txt { font-size: .76rem; color: #64748b; }
+.sector-cards { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+.sc { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 16px; flex: 1; min-width: 100px; border-top: 3px solid #ccc; }
+.sc .cnt { font-size: 1.9rem; font-weight: 800; line-height: 1; }
+.sc .lbl { font-size: .72rem; color: #64748b; margin-top: 3px; }
+.sc .sub { font-size: .68rem; color: #94a3b8; margin-top: 1px; }
+.card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px 20px; margin-bottom: 18px; }
+.card h2 { font-size: .88rem; font-weight: 700; margin-bottom: 14px; color: #0f172a; }
+.chart-wrap { height: 260px; }
+table { width: 100%; border-collapse: collapse; }
+thead th { font-size: .72rem; color: #64748b; text-align: left; padding: 7px 10px; border-bottom: 2px solid #e2e8f0; font-weight: 600; white-space: nowrap; }
+tbody td { font-size: .78rem; padding: 7px 10px; border-bottom: 1px solid #f1f5f9; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: #f8fafc; }
+.badge { display: inline-block; border-radius: 4px; padding: 2px 7px; font-size: .62rem; font-weight: 700; color: #fff; }
+.num-cell { text-align: right; font-variant-numeric: tabular-nums; }
+.mini-bar { height: 7px; border-radius: 3px; min-width: 2px; }
+.hidden { display: none !important; }
+.stats-txt { font-size: .72rem; color: #94a3b8; text-align: center; padding-top: 4px; }
+</style>
+</head>
+<body>
+<h1>📊 Menções no Slack — Exemplo</h1>
+
+<div class="filters">
+  <div class="fg">
+    <label>De</label>
+    <input type="date" id="startDate">
+  </div>
+  <div class="fg">
+    <label>Até</label>
+    <input type="date" id="endDate">
+  </div>
+  <div class="fg" style="margin-left:6px">
+    <input type="checkbox" id="chkConectado" checked>
+    <span class="ch-lbl" onclick="document.getElementById('chkConectado').click()">#conectado</span>
+  </div>
+  <div class="fg">
+    <input type="checkbox" id="chkOperacao" checked>
+    <span class="ch-lbl" onclick="document.getElementById('chkOperacao').click()">#time-operação</span>
+  </div>
+  <button class="btn" id="btnBuscar" onclick="buscar()">🔍 Buscar</button>
+</div>
+
+<div class="prog-wrap hidden" id="progWrap">
+  <div class="prog-bg"><div class="prog-bar" id="pBar" style="width:0%"></div></div>
+  <p class="prog-txt" id="pTxt">Iniciando...</p>
+</div>
+
+<div id="results" class="hidden">
+  <div class="sector-cards" id="sectorCards"></div>
+  <div class="card">
+    <h2>📈 Menções por Setor</h2>
+    <div class="chart-wrap"><canvas id="barChart"></canvas></div>
+  </div>
+  <div class="card">
+    <h2>👤 Menções por Pessoa</h2>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:140px">Pessoa</th>
+          <th>Cargo</th>
+          <th>Setor</th>
+          <th class="num-cell">#conectado</th>
+          <th class="num-cell">#time-op.</th>
+          <th class="num-cell">Total</th>
+          <th style="width:100px"></th>
+        </tr>
+      </thead>
+      <tbody id="tBody"></tbody>
+    </table>
+  </div>
+  <p class="stats-txt" id="statsLine"></p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<script>
+const CH_CON = 'ID_SLACK_EXEMPLO';
+const CH_OP  = 'ID_SLACK_EXEMPLO';
+const T_CH   = 'mcp__ID_CONECTOR_SLACK__slack_read_channel';
+const T_THR  = 'mcp__ID_CONECTOR_SLACK__slack_read_thread';
+const COLORS = { 'Fiscal':'#EF4444','Balanço':'#3B82F6','Folha':'#22C55E','IA':'#A855F7','Atendimento':'#F97316','Comercial':'#EAB308','Gestão':'#06B6D4','Outros':'#94A3B8' };
+const USERS = {
+  ID_SLACK_EXEMPLO:{name:'Colaborador 35',role:'Fiscal 1',sector:'Fiscal'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 36',role:'Fiscal 2',sector:'Fiscal'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 13',role:'Fiscal 3',sector:'Fiscal'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 14',role:'Fiscal 4 & 5',sector:'Fiscal'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 37',role:'Prime Fiscal',sector:'Fiscal'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 15',role:'Fiscal',sector:'Fiscal'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 38',role:'Balanço 1',sector:'Balanço'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 16',role:'Balanço 2',sector:'Balanço'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 64',role:'Balanço 3',sector:'Balanço'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 65',role:'Time Informe',sector:'Balanço'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 67',role:'Prime Balanço',sector:'Balanço'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 17',role:'Prime Balanço',sector:'Balanço'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 68',role:'Folha 1',sector:'Folha'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 63',role:'Folha 2',sector:'Folha'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 66',role:'Folha 3',sector:'Folha'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 69',role:'Folha 4',sector:'Folha'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 39',role:'Folha 6',sector:'Folha'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 62',role:'Líder Folha',sector:'Folha'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 18',role:'Líder Folha',sector:'Folha'},
+  ID_SLACK_EXEMPLO:{name:'Victoria Pedrosa',role:'Líder IA',sector:'IA'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 4',role:'Atendimento',sector:'Atendimento'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 61',role:'Atend & Onb',sector:'Atendimento'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 60',role:'Onb & Atend',sector:'Atendimento'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 19',role:'Líder Atend',sector:'Atendimento'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 20',role:'Comercial',sector:'Comercial'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 21',role:'Líder Comercial',sector:'Comercial'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 22',role:'Líder Gestão',sector:'Gestão'},
+  ID_SLACK_EXEMPLO:{name:'Colaborador 3',role:'Gestão',sector:'Gestão'},
+};
+
+let counts={}, statM=0, statT=0, chart=null;
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+function setP(pct,txt){ document.getElementById('pBar').style.width=pct+'%'; document.getElementById('pTxt').textContent=txt; }
+
+function pickMentions(text){
+  const out=[],re=/<@([A-Z0-9]+)(?:\|[^>]+)?>/g; let m;
+  while((m=re.exec(text))!==null) out.push(m[1]);
+  return out;
+}
+
+function parseMsgs(text){
+  const blocks=text.split(/^=== Message from/m), out=[];
+  for(let i=1;i<blocks.length;i++){
+    const b=blocks[i];
+    const tsM=b.match(/\nMessage TS:\s*([\d.]+)/);
+    const thrM=b.match(/\nThread:\s*(\d+)\s*repl/);
+    if(tsM) out.push({ts:tsM[1],replies:thrM?+thrM[1]:0,raw:b});
+  }
+  return out;
+}
+
+function parseCursor(text){ const m=(text||'').match(/cursor:\s*`([^`]+)`/); return m?m[1]:null; }
+
+function addCount(uid,ch){
+  if(!counts[uid]) counts[uid]={conectado:0,operacao:0};
+  if(ch===CH_CON) counts[uid].conectado++; else counts[uid].operacao++;
+}
+
+function getPayload(r){
+  try{ if(r.structuredContent&&typeof r.structuredContent==='object') return r.structuredContent; return JSON.parse(r.content[0].text); }
+  catch{ return {messages:r.content?.[0]?.text||'',pagination_info:''}; }
+}
+
+async function fetchChannel(chId,startTs,endTs,label,p0,p1){
+  const msgs=[]; let cursor=null,page=0,done=false;
+  while(!done){
+    const args={channel_id:chId,limit:100,response_format:'detailed'};
+    if(cursor) args.cursor=cursor;
+    setP(p0+(p1-p0)*0.15,`${label} — pág. ${page+1}`);
+    let payload;
+    try{ const r=await window.cowork.callMcpTool(T_CH,args); payload=getPayload(r); }
+    catch(e){ console.warn(e); break; }
+    const text=payload.messages||'';
+    const parsed=parseMsgs(text);
+    for(const msg of parsed){
+      const ts=parseFloat(msg.ts);
+      if(ts<startTs){done=true;break;}
+      if(ts<=endTs) msgs.push(msg);
+    }
+    cursor=parseCursor(payload.pagination_info||'');
+    if(!cursor) done=true;
+    page++; await sleep(150);
+  }
+  statM+=msgs.length;
+  for(const msg of msgs) pickMentions(msg.raw).forEach(uid=>addCount(uid,chId));
+  const threaded=msgs.filter(m=>m.replies>0);
+  statT+=threaded.length;
+  for(let i=0;i<threaded.length;i++){
+    setP(p0+(p1-p0)*(0.15+0.85*(i/Math.max(threaded.length,1))),`${label} — threads ${i+1}/${threaded.length}`);
+    try{
+      const r=await window.cowork.callMcpTool(T_THR,{channel_id:chId,message_ts:threaded[i].ts});
+      const p=getPayload(r);
+      const t=p.messages||(typeof p==='string'?p:'');
+      pickMentions(t).forEach(uid=>addCount(uid,chId));
+    }catch(e){ console.warn(e); }
+    if(i%8===7) await sleep(200);
+  }
+}
+
+async function buscar(){
+  const sd=document.getElementById('startDate').value;
+  const ed=document.getElementById('endDate').value;
+  const useC=document.getElementById('chkConectado').checked;
+  const useO=document.getElementById('chkOperacao').checked;
+  if(!sd||!ed||(!useC&&!useO)) return;
+  const startTs=new Date(sd+'T00:00:00-03:00').getTime()/1000;
+  const endTs=new Date(ed+'T23:59:59-03:00').getTime()/1000;
+  counts={}; statM=0; statT=0;
+  document.getElementById('btnBuscar').disabled=true;
+  document.getElementById('results').classList.add('hidden');
+  document.getElementById('progWrap').classList.remove('hidden');
+  setP(2,'Iniciando...');
+  if(useC&&useO){ await fetchChannel(CH_CON,startTs,endTs,'#conectado',2,50); await fetchChannel(CH_OP,startTs,endTs,'#time-operação',50,98); }
+  else if(useC) await fetchChannel(CH_CON,startTs,endTs,'#conectado',2,98);
+  else await fetchChannel(CH_OP,startTs,endTs,'#time-operação',2,98);
+  setP(100,'Processando...'); await sleep(200);
+  render(sd,ed);
+  document.getElementById('progWrap').classList.add('hidden');
+  document.getElementById('btnBuscar').disabled=false;
+}
+
+function render(sd,ed){
+  const rows=[], secTot={};
+  for(const [uid,c] of Object.entries(counts)){
+    const total=c.conectado+c.operacao; if(!total) continue;
+    const u=USERS[uid]||{name:uid,role:'—',sector:'Outros'};
+    secTot[u.sector]=(secTot[u.sector]||0)+total;
+    rows.push({...u,uid,...c,total});
+  }
+  rows.sort((a,b)=>b.total-a.total);
+  const sorted=Object.entries(secTot).sort((a,b)=>b[1]-a[1]);
+  // Cards
+  const cardsEl=document.getElementById('sectorCards');
+  cardsEl.innerHTML='';
+  for(const [sec,tot] of sorted){
+    const col=COLORS[sec]||'#94A3B8';
+    const ppl=rows.filter(r=>r.sector===sec).length;
+    cardsEl.innerHTML+=`<div class="sc" style="border-top-color:${col}"><div class="cnt" style="color:${col}">${tot}</div><div class="lbl">${sec}</div><div class="sub">${ppl} pessoa${ppl!==1?'s':''}</div></div>`;
+  }
+  // Chart
+  if(chart){chart.destroy();chart=null;}
+  const ctx=document.getElementById('barChart').getContext('2d');
+  chart=new Chart(ctx,{type:'bar',data:{labels:sorted.map(([s])=>s),datasets:[{label:'Menções',data:sorted.map(([,v])=>v),backgroundColor:sorted.map(([s])=>COLORS[s]||'#94A3B8'),borderRadius:6,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.y} menções`}}},scales:{y:{beginAtZero:true,ticks:{stepSize:1,precision:0}},x:{grid:{display:false}}}}});
+  // Table
+  const maxT=rows[0]?.total||1;
+  const tbody=document.getElementById('tBody');
+  tbody.innerHTML='';
+  for(const p of rows){
+    const col=COLORS[p.sector]||'#94A3B8';
+    const pct=Math.round((p.total/maxT)*100);
+    const known=!!USERS[p.uid];
+    tbody.innerHTML+=`<tr><td><strong>${p.name}</strong>${!known?' <span style="color:#f59e0b;font-size:.6rem">?</span>':''}</td><td style="color:#64748b">${p.role}</td><td><span class="badge" style="background:${col}">${p.sector}</span></td><td class="num-cell">${p.conectado||'—'}</td><td class="num-cell">${p.operacao||'—'}</td><td class="num-cell"><strong>${p.total}</strong></td><td><div class="mini-bar" style="width:${pct}%;background:${col}"></div></td></tr>`;
+  }
+  if(!rows.length) tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:20px">Nenhuma menção encontrada no período</td></tr>';
+  document.getElementById('statsLine').textContent=`${statM} mensagens + ${statT} threads analisados  •  ${sd} → ${ed}`;
+  document.getElementById('results').classList.remove('hidden');
+}
+
+(function(){
+  const n=new Date(), y=n.getFullYear(), m=String(n.getMonth()+1).padStart(2,'0'), d=String(n.getDate()).padStart(2,'0');
+  document.getElementById('startDate').value=`${y}-${m}-01`;
+  document.getElementById('endDate').value=`${y}-${m}-${d}`;
+})();
+</script>
+</body>
+</html>
